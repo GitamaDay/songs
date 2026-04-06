@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amanita · Gitama Day</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400&family=Cormorant+Garamond:ital,wght@0,300;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --rust: #C4622A;
+    --gold: #D4A843;
+    --cream: #F2E8D8;
+    --dark: #0E0A06;
+    --mid: #1A1008;
+    --mush-red: #8B2020;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--dark);
+    font-family: 'Cormorant Garamond', serif;
+    overflow: hidden;
+  }
+
+  /* Spore particle background */
+  .spores {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .spore {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,168,67,0.6) 0%, transparent 70%);
+    animation: float linear infinite;
+  }
+
+  @keyframes float {
+    0%   { transform: translateY(110vh) translateX(0) scale(1); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 0.6; }
+    100% { transform: translateY(-10vh) translateX(var(--drift)) scale(0.3); opacity: 0; }
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    gap: 0;
+  }
+
+  /* Artwork */
+  .artwork-frame {
+    position: relative;
+    width: min(380px, 88vw);
+    aspect-ratio: 1;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(212,168,67,0.3),
+      0 0 40px rgba(196,98,42,0.4),
+      0 0 80px rgba(139,32,32,0.25),
+      0 30px 60px rgba(0,0,0,0.8);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .artwork-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s ease, filter 0.4s ease;
+  }
+
+  .artwork-frame:hover img {
+    transform: scale(1.03);
+  }
+
+  /* Play overlay on image */
+  .play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(14,10,6,0.35);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .artwork-frame:hover .play-overlay { opacity: 1; }
+  .artwork-frame.playing .play-overlay { opacity: 0; }
+  .artwork-frame.playing:hover .play-overlay { opacity: 1; }
+
+  .play-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(212,168,67,0.2);
+    border: 1px solid rgba(212,168,67,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+
+  .play-icon svg { fill: var(--gold); }
+
+  /* Vinyl pulse ring when playing */
+  .pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: inset 0 0 0 2px rgba(212,168,67,0.5);
+    animation: none;
+  }
+  .artwork-frame.playing .pulse-ring {
+    opacity: 1;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: inset 0 0 0 2px rgba(212,168,67,0.5), 0 0 20px rgba(212,168,67,0.2); }
+    50%       { box-shadow: inset 0 0 0 2px rgba(212,168,67,0.9), 0 0 40px rgba(212,168,67,0.4); }
+  }
+
+  /* Info */
+  .info {
+    margin-top: 1.6rem;
+    text-align: center;
+  }
+
+  .song-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 300;
+    letter-spacing: .2em;
+    color: var(--cream);
+    text-transform: uppercase;
+  }
+
+  .artist {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(.85rem, 2.5vw, 1rem);
+    color: rgba(212,168,67,0.8);
+    letter-spacing: .15em;
+    margin-top: .35rem;
+  }
+
+  /* Progress */
+  .progress-area {
+    width: min(380px, 88vw);
+    margin-top: 1.4rem;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 2px;
+    background: rgba(242,232,216,0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    transition: height 0.2s;
+  }
+  .progress-bar:hover { height: 4px; }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--rust), var(--gold));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(212,168,67,0.8);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .progress-bar:hover .progress-fill::after { opacity: 1; }
+
+  .times {
+    display: flex;
+    justify-content: space-between;
+    margin-top: .5rem;
+    font-size: .72rem;
+    letter-spacing: .08em;
+    color: rgba(242,232,216,0.4);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-top: 1.2rem;
+  }
+
+  .btn-play {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,168,67,0.5);
+    background: rgba(212,168,67,0.08);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+    color: var(--gold);
+  }
+  .btn-play:hover {
+    background: rgba(212,168,67,0.18);
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(212,168,67,0.3);
+  }
+  .btn-play svg { fill: var(--gold); transition: transform 0.2s; }
+  .btn-play:active svg { transform: scale(0.88); }
+
+  .btn-skip {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: rgba(242,232,216,0.4);
+    transition: color 0.2s;
+    padding: .3rem;
+  }
+  .btn-skip:hover { color: var(--cream); }
+  .btn-skip svg { fill: currentColor; }
+
+  /* Volume */
+  .volume-row {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    margin-top: 1rem;
+  }
+  .vol-icon { color: rgba(242,232,216,0.35); font-size: .85rem; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 90px;
+    height: 2px;
+    background: rgba(242,232,216,0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(212,168,67,0.5);
+  }
+
+  /* Decorative line */
+  .deco-line {
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212,168,67,0.5), transparent);
+    margin: .8rem auto 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating spores -->
+<div class="spores" id="spores"></div>
+
+<div class="wrap">
+
+  <!-- Artwork -->
+  <div class="artwork-frame" id="artFrame" onclick="togglePlay()">
+    <img src="AMANITA__COVER.jpg" alt="Amanita">
+    <div class="play-overlay">
+      <div class="play-icon">
+        <svg id="overlayIcon" width="24" height="24" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+    </div>
+    <div class="pulse-ring"></div>
+  </div>
+
+  <!-- Title -->
+  <div class="info">
+    <div class="song-title">Amanita</div>
+    <div class="artist">Gitama Day</div>
+  </div>
+
+  <div class="deco-line"></div>
+
+  <!-- Progress -->
+  <div class="progress-area">
+    <div class="progress-bar" id="progressBar" onclick="seek(event)">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="times">
+      <span id="timeNow">0:00</span>
+      <span id="timeTot">0:00</span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-skip" onclick="skip(-15)" title="Back 15s">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11H10v-3.26L9 13.27V12.2l1.8-.65h.1V16zm4.14-1.35c0 .86-.13 1.48-.4 1.86-.27.37-.7.56-1.3.56-.58 0-1.01-.19-1.28-.56-.27-.37-.41-.98-.42-1.83v-.97c0-.85.14-1.47.4-1.85.27-.38.7-.57 1.3-.57.59 0 1.02.19 1.29.56.27.37.41.98.41 1.83v.97zm-.85-1.06c0-.56-.06-.96-.16-1.2-.11-.23-.28-.35-.51-.35-.23 0-.4.11-.51.33-.1.22-.16.6-.16 1.13v1.26c0 .56.06.97.16 1.21.11.24.28.36.52.36.23 0 .4-.11.51-.33.1-.22.16-.61.16-1.18v-1.23z"/></svg>
+    </button>
+
+    <button class="btn-play" id="playBtn" onclick="togglePlay()">
+      <svg id="playIcon" width="26" height="26" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+
+    <button class="btn-skip" onclick="skip(15)" title="Forward 15s">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8zm-1.1 11H10v-3.26L9 13.27V12.2l1.8-.65h.1V16zm4.14-1.35c0 .86-.13 1.48-.4 1.86-.27.37-.7.56-1.3.56-.58 0-1.01-.19-1.28-.56-.27-.37-.41-.98-.42-1.83v-.97c0-.85.14-1.47.4-1.85.27-.38.7-.57 1.3-.57.59 0 1.02.19 1.29.56.27.37.41.98.41 1.83v.97zm-.85-1.06c0-.56-.06-.96-.16-1.2-.11-.23-.28-.35-.51-.35-.23 0-.4.11-.51.33-.1.22-.16.6-.16 1.13v1.26c0 .56.06.97.16 1.21.11.24.28.36.52.36.23 0 .4-.11.51-.33.1-.22.16-.61.16-1.18v-1.23z"/></svg>
+    </button>
+  </div>
+
+  <!-- Volume -->
+  <div class="volume-row">
+    <span class="vol-icon">♪</span>
+    <input type="range" id="vol" min="0" max="1" step="0.02" value="0.85" oninput="setVol(this.value)">
+  </div>
+
+</div>
+
+<audio id="audio" src="AMANITA_ONE__.mp3" preload="metadata"></audio>
+
+<script>
+const audio = document.getElementById('audio');
+const playIcon = document.getElementById('playIcon');
+const overlayIcon = document.getElementById('overlayIcon');
+const artFrame = document.getElementById('artFrame');
+const progressFill = document.getElementById('progressFill');
+const timeNow = document.getElementById('timeNow');
+const timeTot = document.getElementById('timeTot');
+
+const PLAY_PATH  = 'M8 5v14l11-7z';
+const PAUSE_PATH = 'M6 19h4V5H6v14zm8-14v14h4V5h-4z';
+
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function togglePlay() {
+  if (audio.paused) {
+    audio.play();
+  } else {
+    audio.pause();
+  }
+}
+
+audio.addEventListener('play', () => {
+  playIcon.querySelector ? null : null;
+  playIcon.setAttribute('d', PAUSE_PATH);
+  overlayIcon.setAttribute('d', PAUSE_PATH);
+  artFrame.classList.add('playing');
+});
+
+audio.addEventListener('pause', () => {
+  playIcon.setAttribute('d', PLAY_PATH);
+  overlayIcon.setAttribute('d', PLAY_PATH);
+  artFrame.classList.remove('playing');
+});
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  progressFill.style.width = pct + '%';
+  timeNow.textContent = fmt(audio.currentTime);
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  timeTot.textContent = fmt(audio.duration);
+});
+
+audio.volume = 0.85;
+
+function seek(e) {
+  const bar = document.getElementById('progressBar');
+  const rect = bar.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  audio.currentTime = pct * audio.duration;
+}
+
+function skip(s) {
+  audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + s));
+}
+
+function setVol(v) {
+  audio.volume = v;
+}
+
+// SVG icons fix - update path elements
+document.querySelectorAll('#playIcon, #overlayIcon').forEach(svg => {
+  svg.innerHTML = '<path d="' + PLAY_PATH + '"/>';
+});
+
+// Spores
+const sporesEl = document.getElementById('spores');
+for (let i = 0; i < 18; i++) {
+  const s = document.createElement('div');
+  s.className = 'spore';
+  const size = Math.random() * 6 + 2;
+  s.style.cssText = `
+    width:${size}px; height:${size}px;
+    left:${Math.random()*100}%;
+    --drift:${(Math.random()-0.5)*120}px;
+    animation-duration:${Math.random()*12+8}s;
+    animation-delay:${Math.random()*-15}s;
+    opacity:${Math.random()*0.5+0.2};
+  `;
+  sporesEl.appendChild(s);
+}
+</script>
+</body>
+</html>
